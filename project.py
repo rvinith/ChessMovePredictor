@@ -6,26 +6,27 @@ import torch.nn.functional as F
 import numpy as np
 import pickle
 
-class PredictMove:
-    def __init__(self, pool_size = 2)
-class CNN(nn.Module):
+# class PredictMove:
+#     def __init__(self, pool_size = 2)
+
+class ConvNet(nn.Module):
     def __init__(self):
-        super(DigitsConvNet, self).__init__()
-        self.conv1 = nn.Conv2d(2, 16, kernel_size = 3, padding = 1)
-        self.pool = nn.MaxPool2d
-        self.conv2 = nn.Conv2d(16, 16, kernel_size = 3, padding = 1)
-        self.conv3 = nn.Conv2d(16, 16, kernel_size = 3, padding = 1)
-        self.lin1 = nn.Linear(16, 1)
+        super(ConvNet, self).__init__()
+        self.conv1 = nn.Conv2d(2, 64, kernel_size = 3, padding = 1)
+        self.pool = nn.MaxPool2d(kernel_Size = 2)
+        self.conv2 = nn.Conv2d(64, 2, kernel_size = 3, padding = 1)
+        self.lin1 = nn.Linear(2, 1)
 
     # def set_parameters(self):
 
     def forward(self, inputs):
-        # inputs = inputs.view(-1, )
-        x = x.relu(self.conv1(inputs))
-        x = x.relu(self.conv2(inputs))
-        x = x.relu(self.conv3(inputs))
+        # out = inputs.view(-1, )
+        out = out.relu(self.conv1(out))
+        out = self.pool(out)
+        out = out.relu(self.conv2(out))
+        out = self.lin1(out)
 
-        return x
+        return out
 
 
 def load_puzzle(pgn_handle):
@@ -54,11 +55,16 @@ def fit():
         b, m = load_puzzle(pgn_handle)
         b, m = load_puzzle(pgn_handle)
         b, m = load_puzzle(pgn_handle)
+        movesList = b.legal_moves
         # b = torch.Tensor(b)
         print(b)
         print(m)
+        print(movesList)
         while b is not None:
             b, m = load_puzzle(pgn_handle)
+
+def fit_and_validate(net, optimizer, loss_func, train, val, n_epochs, batch_size=1):
+    
 
 def move(board):
     """
