@@ -4,7 +4,6 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import numpy as np
-import pickle
 
 # class PredictMove:
 #     def __init__(self, pool_size = 2)
@@ -55,7 +54,7 @@ def fit():
         b, m = load_puzzle(pgn_handle)
         b, m = load_puzzle(pgn_handle)
         b, m = load_puzzle(pgn_handle)
-        movesList = b.legal_moves
+        movesList = torch.Tensor(b.legal_moves)
         # b = torch.Tensor(b)
         print(b)
         print(m)
@@ -64,7 +63,9 @@ def fit():
             b, m = load_puzzle(pgn_handle)
 
 def fit_and_validate(net, optimizer, loss_func, train, val, n_epochs, batch_size=1):
-    
+    net.eval()
+
+    torch.save(net.cpu().state_dict(), "chessModel.pb")
 
 def move(board):
     """
