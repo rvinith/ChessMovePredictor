@@ -54,11 +54,11 @@ def fit():
         b, m = load_puzzle(pgn_handle)
         b, m = load_puzzle(pgn_handle)
         b, m = load_puzzle(pgn_handle)
-        movesList = torch.Tensor(b.legal_moves)
         # b = torch.Tensor(b)
+        moves = list(b.legal_moves)
         print(b)
         print(m)
-        print(movesList)
+        print(moves)
         while b is not None:
             b, m = load_puzzle(pgn_handle)
 

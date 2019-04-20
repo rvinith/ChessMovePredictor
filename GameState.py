@@ -1,8 +1,5 @@
 import chess
-import chess.pgn
-import torch
 from torch import nn
-import torch.nn.functional as F
 import numpy as np
 
 class GameState(object):
@@ -20,4 +17,4 @@ class GameState(object):
         #ranks moves in network (weights)
         return 1
 
-    
+print(GameState.legalMoves)
