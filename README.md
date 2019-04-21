@@ -21,4 +21,3 @@ Point Values (based on Reinfeld Values)
     ROOK : 5
     QUEEN : 9
     KING : 0
-
