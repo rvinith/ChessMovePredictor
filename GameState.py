@@ -12,7 +12,8 @@ class GameState(object):
 
     def convert(self):
         #convert board state to bit representaiton for network
-        pass
+        self.netInput = self.board.shredder_fen()
+        return self.netInput
     
     def legalMoves(self):
         return list(self.board.legal_moves)
@@ -33,3 +34,4 @@ result = {'1-0' : 1, '0-1' : -1, '1/2-1/2' : 0}[game.headers['Result']]
 print(board)
 print(board.fen())
 print(CurrentGame.legalMoves())
+print(CurrentGame.convert())
