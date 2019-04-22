@@ -21,17 +21,3 @@ class GameState(object):
     def rank(self):
         #ranks moves in network (weights)
         return 1
-
-
-pgn_handle = open("tactics.pgn")
-game = chess.pgn.read_game(pgn_handle)
-game = chess.pgn.read_game(pgn_handle)
-game = chess.pgn.read_game(pgn_handle)
-board = game.board()
-CurrentGame = GameState(board)
-moves = game.mainline_moves()
-result = {'1-0' : 1, '0-1' : -1, '1/2-1/2' : 0}[game.headers['Result']]
-print(board)
-print(board.fen())
-print(CurrentGame.legalMoves())
-print(CurrentGame.convert())
