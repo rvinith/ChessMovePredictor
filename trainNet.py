@@ -38,5 +38,3 @@ def generateInputData():
         print(board.fen())
         print(CurrentGame.legalMoves())
         print(CurrentGame.convert())
-
-generateInputData()

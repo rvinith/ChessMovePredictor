@@ -1,9 +1,42 @@
 import chess
 import chess.pgn
+import numpy as np
 import torch
 from torch import nn
 import torch.nn.functional as F
-import numpy as np
+import torch.optim as optim
+
+class ConvNet(nn.Module):
+    def __init__(self):
+        super(ConvNet, self).__init__()
+        self.conv1 = nn.Conv2d(64, 64, kernel_size = 1, padding = 1)
+        self.pool = nn.MaxPool2d(kernel_size = 1)
+        self.conv2 = nn.Conv2d(64, 2, kernel_size = 1, padding = 1)
+        self.lin1 = nn.Linear(2, 1)
+
+    # def set_parameters(self):
+
+    def forward(self, inputs):
+        out = F.relu(self.conv1(inputs))
+        out = self.pool(out)
+        out = F.relu(self.conv2(out))
+        out = out.view(-1, 2)
+        out = self.lin1(out)
+
+        return out
+
+def convertBoard(board):
+    flatBoard = np.zeros(64)
+    for i in range(64):
+        val = board.piece_at(i)        
+        if val is None:
+            flatBoard[i] = 0
+        else:
+            flatBoard[i] = {"P": 1, "N" : 2, "B" : 3, "R" : 4, "Q" : 5, "K" : 6, "p" : 7, "n" : 8, "b" : 9, "r" : 10, "q" : 11, "k" : 12}[val.symbol()]
+    print(flatBoard.reshape(8,8))
+
+    # return flatBoard
+    return flatBoard.reshape(64, 1, 1)
 
 def load_puzzle(pgn_handle):
     """
@@ -27,37 +60,46 @@ def fit():
     """
     This is just a snippet for reading board-move pairs you might use for training
     """
-    with open('tactics.pgn') as pgn_handle:
-        b, m = load_puzzle(pgn_handle)
-        b, m = load_puzzle(pgn_handle)
-        b, m = load_puzzle(pgn_handle)
-        # b = torch.Tensor(b)
-        moves = list(b.legal_moves)
-        print(b)
-        print(m)
-        print(moves)
-        while b is not None:
+    with open('tactics.pgn') as pgn_handle:    
+        b, m = load_puzzle(pgn_handle)    
+        while b is not None:        
+            in_channels = np.zeros((2, 64, 1, 1)) # white, black, legal moves
+            legal = list(b.legal_moves)
+            # current state
+            in_channels[0] = torch.Tensor(convertBoard(b))
+            b.push(m)
+            # next state
+            in_channels[1] = torch.Tensor(convertBoard(b))
+            # layers[0][2] = torch.Tensor(legal)
+            in_channels = torch.Tensor(in_channels)
+
+            ChessNet = ConvNet()
+            ChessNet.train()
+            ChessNet(in_channels)
+            b.pop()
+
+            for move in legal:
+                b.push(move)
+                # new next state
+                in_channels[1] = torch.Tensor(convertBoard(b))
+                in_channels = torch.Tensor(in_channels)
+                ChessNet(in_channels)
+                b.pop()
+
+            # update board and move
             b, m = load_puzzle(pgn_handle)
-
-def fit_and_validate(net, optimizer, loss_func, train, val, n_epochs, batch_size=1):
-    net.eval()
-
-    torch.save(net.cpu().state_dict(), "chessModel.pb")
+    
+    torch.save(ChessNet.state_dict(), 'model.pb')
 
 def move(board):
     """
     @param board: a chess.Board
     @return mv: a chess.Move
     """
-    #TODO: prediction here
+    ChessNet = ConvNet()
+
 
     pass
 
-# filenames = ['tactics.pgn']
-# trainFile = open(filenames[0], 'r')
-# board, move = load_puzzle(trainFile)
-# # board = torch.tensor(board) 
-# print(board)
-# print(move)
-
+# convertBoard(chess.Board())
 fit()
