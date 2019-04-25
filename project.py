@@ -6,23 +6,19 @@ from torch import nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.utils.data as utils
+import random
 
-class ConvNet(nn.Module):
+class NeuralNet(nn.Module):
     def __init__(self):
-        super(ConvNet, self).__init__()
-        self.conv1 = nn.Conv2d(2, 64, kernel_size = 3, padding = 1)
-        self.pool1 = nn.MaxPool2d(kernel_size = 2)
-        self.conv2 = nn.Conv2d(64, 2, kernel_size = 3, padding = 1)
-        self.lin1 = nn.Linear(2, 1)
-
-    # def set_parameters(self):
+        super(NeuralNet, self).__init__()
+        self.lin1 = nn.Linear(128, 32)
+        self.lin2 = nn.Linear(32, 8)
+        self.lin3 = nn.Linear(8, 1)
 
     def forward(self, inputs):
-        out = F.relu(self.conv1(inputs))
-        out = self.pool1(out)
-        out = F.relu(self.conv2(out))
-        out = out.view(-1, 2)
-        out = self.lin1(out)
+        out = self.lin1(inputs)
+        out = self.lin2(out)
+        out = torch.sigmoid(self.lin3(out))
 
         return out
 
@@ -38,8 +34,7 @@ def convertBoard(board):
         else:
             flatBoard[i] = {"P": 1, "N" : 2, "B" : 3, "R" : 4, "Q" : 5, "K" : 6, "p" : 7, "n" : 8, "b" : 9, "r" : 10, "q" : 11, "k" : 12}[val.symbol()]
 
-    # return flatBoard
-    return flatBoard.reshape(64, 1, 1)
+    return flatBoard
 
 def load_puzzle(pgn_handle):
     """
@@ -59,92 +54,108 @@ def load_puzzle(pgn_handle):
         if j == 1:
             return board, mv
 
-def train(ChessNet, X, Y, optimizer, loss_func, n_epochs, bs = 256):
-    loss = 0
-    numLoss = 0
-    data_X = torch.stack(X)
-    data_Y = torch.Tensor(Y)
-    data = utils.TensorDataset(data_X, data_Y)
-    trainingSet = utils.DataLoader(data, batch_size = bs, shuffle = True)
-    ChessNet.train()
+def loss_batch(net, loss_fn, X, Y, opt = None):
+    loss = loss_fn(net(X), Y)
 
-    for epoch in range(n_epochs):
-        for i, (data_set, label_set) in enumerate(trainingSet):
-            output = ChessNet(data_set)
-            l = loss_func(output, label_set)
-            l.backward()
-            optimizer.step()
-            loss += l.item()
-            numLoss += 1
+    if opt is not None:
+        loss.backward()
+        opt.step()
+        opt.zero_grad()
 
-    torch.save(ChessNet.state_dict(), 'model.pb')
+    return loss.item(), len(X)
+
+
+def train(net, optimizer, loss_fn, X, Y, n_epochs):
+    net.eval()
+    data = torch.Tensor(X)
+    labels = torch.Tensor(Y)
+    with torch.no_grad():
+        epoch_loss = [loss_fn(net(data), labels)]
+    for i in range(n_epochs):
+        loss = loss_fn(net(data), labels)
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+        epoch_loss.append(loss)
+
+    torch.save(net.state_dict(), 'model.pb')
 
 def fit():
     """
     Training moves and board combos
     """
-    ChessNet = ConvNet()
-    opt = optim.Adam(ChessNet.parameters())
-    loss = nn.CrossEntropyLoss()
-    epochs = 20
-    boardPairs = []
-    labels = []
+    files = ['tactics.pgn', 'tactics_depth8.pgn']
+    ChessNet = NeuralNet()
+    X = []
+    Y = []
+    game = 1
+    loss_fn = nn.MSELoss()
+    opt = optim.Adam(ChessNet.parameters(), lr = 0.004)
+    n_epochs = 20
+    ChessNet.train()
+    for file in range(len(files)):
+        with open(files[file]) as pgn_handle:    
+            b, m = load_puzzle(pgn_handle)    
+            while b is not None:      
+                in_channels = np.zeros((2, 64)) # board, next state, legal moves
+                legal = list(b.legal_moves)
+                # current state
+                in_channels[0] = convertBoard(b)
 
-    with open('tactics.pgn') as pgn_handle:    
-        b, m = load_puzzle(pgn_handle)    
-        while b is not None:        
-            in_channels = np.zeros((64, 2, 3, 3)) # board, next state, legal moves
-            legal = list(b.legal_moves)
-            # current state
-            in_channels[:, 0] = torch.Tensor(convertBoard(b))
+                for i in range(7):
+                    move = random.choice(legal)
+                    b.push(move)
+                    # new next state
+                    in_channels[1] = convertBoard(b)
+                    inp = in_channels.flatten()
+                    X.append(inp)
+                    if move == m:
+                        Y.append(1)
+                    else:
+                        Y.append(0)
+                    # print("yeet ", game)
+                    game += 1
+                    b.pop()
 
-            for move in legal:
-                b.push(move)
-                # new next state
-                in_channels[:, 1] = torch.Tensor(convertBoard(b))
-                in_channels = torch.Tensor(in_channels)
-                boardPairs.append(in_channels)
-                if m == move:
-                    labels.append(1)
-                else:
-                    labels.append(0)
-                b.pop()
+                # update board and move
+                b, m = load_puzzle(pgn_handle)
 
-            # update board and move
-            b, m = load_puzzle(pgn_handle)
-    
-    train(ChessNet, boardPairs, labels, opt, loss, epochs)
+    train(ChessNet, opt, loss_fn, X, Y, n_epochs)
 
 def move(board):
     """
     @param board: a chess.Board
     @return mv: a chess.Move
     """
-    ChessNet = ConvNet()
-    in_channels = np.zeros((64, 2, 3, 3)) # board, next state, legal moves    
+    ChessNet = NeuralNet()
+    in_channels = np.zeros((2, 64)) # board, next state, legal moves    
     legal = list(board.legal_moves)
     outputs = []
-    # opt = optim.SGD(ConvNet.parameters(), lr = 0.004, momentum = 0)
-    # loss = nn.CrossEntropyLoss()
-    # n_epochs = 20
     ChessNet.load_state_dict(torch.load('model.pb'))
     ChessNet.eval()
 
-    in_channels[:, 0] = convertBoard(board)
+    in_channels[0] = convertBoard(board)
     for move in legal:
         board.push(move)
         # new next state
-        in_channels[:, 1] = convertBoard(board)
-        
-        netOutput = ChessNet(torch.Tensor(in_channels)).data[1]
-        outputs.append(netOutput)
+        in_channels[1] = convertBoard(board)
+        inp = torch.Tensor(in_channels.flatten())
+        netOutput = ChessNet(inp)
+        outputs.append(netOutput.data[0])
         board.pop()
 
+    print(outputs)
     outputs = np.asarray(outputs)
     idx = np.argmax(outputs)
+    # print(idx)
     mv = legal[idx]
-    print(mv)
+    # print(mv)
 
     return mv
 
 fit()
+# with open('tactics.pgn') as pgn_handle:
+#     b, m = load_puzzle(pgn_handle)
+#     move(b)
+#     b, m = load_puzzle(pgn_handle)
+#     move(b)
